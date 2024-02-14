@@ -11,7 +11,7 @@
 *                    Cisco Systems
 * 
 * Version: 1-0-1
-* Released: 12/19/23
+* Released: 02/14/24
 * 
 * This example macro detects when you have joined a zoom
 * meeting and automatically mutes the microphone of the
