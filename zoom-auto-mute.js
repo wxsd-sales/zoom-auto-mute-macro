@@ -1,35 +1,35 @@
- /********************************************************
- * 
- * Macro Author:      William Mills
- *                    Technical Solutions Specialist 
- *                    wimills@cisco.com
- *                    Cisco Systems
- * 
- * Macro Co Author:   Robert(Bobby) McGonigle Jr
- *                    Technical Marketing Engineer 
- *                    bomcgoni@cisco.com
- *                    Cisco Systems
- * 
- * Version: 1-0-0
- * Released: 12/19/23
- * 
- * This example macro detects when you have joined a zoom
- * meeting and automatically mutes the microphone of the
- * Webex Device and also sends the DTMF string to indicate
- * to other Zoom meeting participants that the device is
- * muted.
- * 
- * The macro attempts to detect if you are successfully
- * in a Zoom meeting before sending the DTMF strings.
- * 
- * This detection is based on media rates of the incoming
- * video from the Zoom meeting.
- * 
- * Full Readme, source code and license agreement available 
- * on Github:
- * https://github.com/wxsd-sales/zoom-auto-mute-macro
- * 
- ********************************************************/
+/********************************************************
+* 
+* Macro Author:      William Mills
+*                    Technical Solutions Specialist 
+*                    wimills@cisco.com
+*                    Cisco Systems
+* 
+* Macro Co Author:   Robert(Bobby) McGonigle Jr
+*                    Technical Marketing Engineer 
+*                    bomcgoni@cisco.com
+*                    Cisco Systems
+* 
+* Version: 1-0-1
+* Released: 12/19/23
+* 
+* This example macro detects when you have joined a zoom
+* meeting and automatically mutes the microphone of the
+* Webex Device and also sends the DTMF string to indicate
+* to other Zoom meeting participants that the device is
+* muted.
+* 
+* The macro attempts to detect if you are successfully
+* in a Zoom meeting before sending the DTMF strings.
+* 
+* This detection is based on media rates of the incoming
+* video from the Zoom meeting.
+* 
+* Full Readme, source code and license agreement available 
+* on Github:
+* https://github.com/wxsd-sales/zoom-auto-mute-macro
+* 
+********************************************************/
 import xapi from 'xapi';
 
 /*********************************************************
@@ -61,28 +61,26 @@ xapi.Event.CallSuccessful.on(async event => {
   setTimeout(pollIncomingMedia, 500, callId)
 })
 
-xapi.Event.CallDisconnect.on(() => {
-  polling = false;
-})
-
+xapi.Event.CallDisconnect.on(() => polling = false)
 
 xapi.Status.Audio.Microphones.Mute.on(async event => {
   const call = await xapi.Status.Call.get();
-  if (!call.hasOwnProperty('CallbackNumber')) return
-  if (!call.CallbackNumber.endsWith('zoomcrc.com')) return
-  if (polling) return;
+  if (call.length == 0) return
+  if (!call[0].CallbackNumber.endsWith('zoomcrc.com')) return
+  if (polling && call[0].Duration > 5) { polling = false }
+  else { return }
   if (event === 'On') zoomMute();
   if (event === 'Off') zoomUnmute();
 })
 
 function zoomMute() {
-  console.log('Muting Zoom Call');
+  console.log('Muting Zoom Call - Sending DTMF String:', config.zoomString.mute);
   xapi.Command.Call.DTMFSend({ DTMFString: config.zoomString.mute, Feedback: 'Silent' });
 }
 
 
 function zoomUnmute() {
-  console.log('Unmuting Zoom Call');
+  console.log('Unmuting Zoom Call - Sending DTMF String:', config.zoomString.unmute);
   xapi.Command.Call.DTMFSend({ DTMFString: config.zoomString.unmute, Feedback: 'Silent' });
 }
 
@@ -106,18 +104,14 @@ async function pollIncomingMedia(callId) {
   }
 
   if (total < config.muteMediaTrigger) {
-    console.log('Polling Result: Low Incoming Media Rate - ', total)
+    console.log('Polling Result: Low Incoming Media Rate - ', total, ' threshold not met')
     setTimeout(pollIncomingMedia, 500, callId);
     return;
   }
 
   polling = false;
-  console.log('Polling Result: Low Incoming Media Rate - ', total)
-  zoomMute();
-}
-
-function normaliseRemoteURI(number) {
-  var regex = /^(sip:|h323:|spark:|h320:|webex:|locus:)/gi;
-  number = number.replace(regex, '');
-  return number;
+  console.log('Polling Result: Low Incoming Media Rate - ', total, ' threshold reached sending DTMF String')
+  const muteState = await xapi.Status.Audio.Microphones.Mute.get()
+  if (muteState == 'On') zoomMute();
+  if (muteState == 'Off') zoomUnmute();
 }
