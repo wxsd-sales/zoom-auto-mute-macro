@@ -10,8 +10,8 @@
 *                    bomcgoni@cisco.com
 *                    Cisco Systems
 * 
-* Version: 1-0-1
-* Released: 02/14/24
+* Version: 1-0-2
+* Released: 02/19/24
 * 
 * This example macro detects when you have joined a zoom
 * meeting and automatically mutes the microphone of the
@@ -63,14 +63,21 @@ xapi.Event.CallSuccessful.on(async event => {
 
 xapi.Event.CallDisconnect.on(() => polling = false)
 
-xapi.Status.Audio.Microphones.Mute.on(async event => {
+xapi.Status.Audio.Microphones.Mute.on(async state => {
   const call = await xapi.Status.Call.get();
   if (call.length == 0) return
   if (!call[0].CallbackNumber.endsWith('zoomcrc.com')) return
-  if (polling && call[0].Duration > 5) { polling = false }
-  else { return }
-  if (event === 'On') zoomMute();
-  if (event === 'Off') zoomUnmute();
+  console.log('Device Mute was set to:', state, ' while on a Zoom call')
+  if (polling && call[0].Duration > 5) {
+    console.log('Call is older than 5 seconds, stopping polling and processing mute change')
+    polling = false
+  }
+  else if (polling) {
+    console.log('Call is still new, ignoring mute change')
+    return
+  }
+  if (state === 'On') zoomMute();
+  if (state === 'Off') zoomUnmute();
 })
 
 function zoomMute() {
