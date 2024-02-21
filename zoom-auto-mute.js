@@ -10,8 +10,8 @@
 *                    bomcgoni@cisco.com
 *                    Cisco Systems
 * 
-* Version: 1-0-2
-* Released: 02/19/24
+* Version: 1-0-3
+* Released: 02/21/24
 * 
 * This example macro detects when you have joined a zoom
 * meeting and automatically mutes the microphone of the
@@ -39,7 +39,8 @@ import xapi from 'xapi';
 const config = {
   zoomString: {
     mute: '1001',           // DTMF String to indicate muted
-    unmute: '12'            // DTMF String to indicate unmuted
+    unmute: '12',           // DTMF String to indicate unmuted
+    hideNonVideo: '105'      // DTMF String to hide non-video participants
   },
   muteMediaTrigger: 700000  // Min Media Rate to trigger initial mute
 }
@@ -70,7 +71,8 @@ xapi.Status.Audio.Microphones.Mute.on(async state => {
   console.log('Device Mute was set to:', state, ' while on a Zoom call')
   if (polling && call[0].Duration > 5) {
     console.log('Call is older than 5 seconds, stopping polling and processing mute change')
-    polling = false
+    polling = false;
+    zoomHideNonVideoParticipants();
   }
   else if (polling) {
     console.log('Call is still new, ignoring mute change')
@@ -89,6 +91,11 @@ function zoomMute() {
 function zoomUnmute() {
   console.log('Unmuting Zoom Call - Sending DTMF String:', config.zoomString.unmute);
   xapi.Command.Call.DTMFSend({ DTMFString: config.zoomString.unmute, Feedback: 'Silent' });
+}
+
+function zoomHideNonVideoParticipants() {
+  console.log('Hiding Non-Video Participants in Zoom Call - Sending DTMF String:', config.zoomString.hideNonVideo);
+  xapi.Command.Call.DTMFSend({ DTMFString: config.zoomString.hideNonVideo, Feedback: 'Silent' });
 }
 
 async function pollIncomingMedia(callId) {
@@ -116,9 +123,11 @@ async function pollIncomingMedia(callId) {
     return;
   }
 
+  if(!polling) return;
   polling = false;
   console.log('Polling Result: Low Incoming Media Rate - ', total, ' threshold reached sending DTMF String')
   const muteState = await xapi.Status.Audio.Microphones.Mute.get()
   if (muteState == 'On') zoomMute();
   if (muteState == 'Off') zoomUnmute();
+  zoomHideNonVideoParticipants();
 }
